@@ -41,7 +41,7 @@ flowchart LR
 
 Research PDFs contain tables, equations and two-column layouts that plain text extraction breaks. **LlamaParse** converts the PDFs into markdown (468 documents), which is then cleaned.
 
-Instead of cutting text every *N* tokens, the pipeline uses **semantic chunking** (LlamaIndex `SemanticSplitterNodeParser`): it embeds consecutive sentences with `BAAI/bge-small-en-v1.5` and starts a new chunk where the meaning shifts sharply (95th-percentile breakpoint). This keeps each idea in one piece and produced **1,239 chunks**.
+Instead of cutting text every *N* tokens, the pipeline uses **semantic chunking** (LlamaIndex `SemanticSplitterNodeParser`): it embeds consecutive sentences with [`BAAI/bge-small-en-v1.5`](https://huggingface.co/BAAI/bge-small-en-v1.5) and starts a new chunk where the meaning shifts sharply (95th-percentile breakpoint). This keeps each idea in one piece and produced **1,239 chunks**.
 
 ### 3. Retrieval strategies compared
 
@@ -51,10 +51,10 @@ Instead of cutting text every *N* tokens, the pipeline uses **semantic chunking*
 | **Dense + Cohere re-rank** | Retrieve 10, let a cross-encoder pick the best | Cohere Rerank, `top_n=2` |
 | **Dense + LLM re-rank** | Zephyr-7B scores each retrieved passage | LlamaIndex `LLMRerank` |
 | **Qdrant hybrid (dense + SPLADE)** | Learned sparse vectors catch exact terms; scores are fused | `sparse_top_k=12`, then Cohere re-rank |
-| **Dense + BM25** | Custom retriever merges 10 vector and 10 keyword results | `BAAI/bge-reranker-base`, keeps the best 2 of ~14 |
+| **Dense + BM25** | Custom retriever merges 10 vector and 10 keyword results | [`BAAI/bge-reranker-base`](https://huggingface.co/BAAI/bge-reranker-base), keeps the best 2 of ~14 |
 | **HyDE** | Writes a hypothetical answer first and searches with it, so the query looks like the documents | `HyDEQueryTransform` |
 
-Answers are generated with **Zephyr-7B-alpha** through the Hugging Face Inference API, using only the re-ranked passages.
+Answers are generated with **Zephyr-7B-alpha** ([`HuggingFaceH4/zephyr-7b-alpha`](https://huggingface.co/HuggingFaceH4/zephyr-7b-alpha)) through the Hugging Face Inference API, using only the re-ranked passages.
 
 ### 4. Evaluation
 
@@ -65,7 +65,7 @@ A 100-question evaluation set (question, answer, retrieved contexts, ground trut
 
 ## Synthetic data and embedding fine-tuning
 
-`distilabel_qa_synthetic_dataset_for_finetuning.ipynb` builds a question–answer dataset from the chunks so the embedding model can be adapted to this domain.
+`distilabel_qa_synthetic_dataset_for_finetuning.ipynb` builds a question–answer dataset from the chunks so the embedding model can be adapted to this domain. Generation runs through a **distilabel** pipeline with Mistral models (including [`mistralai/Mistral-7B-Instruct-v0.2`](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2)).
 
 ```mermaid
 flowchart LR
@@ -76,6 +76,16 @@ flowchart LR
 ```
 
 **Result.** On this dataset, fine-tuning did **not** improve retrieval (Accuracy@10 13.6% before, 13.1% after; Accuracy@1 2.1% vs 1.9%). Both scores are low, which points to the evaluation set rather than the model: many synthetic questions are generic enough to match several chunks from papers on the same topic, so only one counts as "correct". Filtering the generated questions for specificity, or scoring retrieval at the paper level, are the natural next steps. A related project with a cleaner dataset, [Embedding-Models-Finetuning](https://github.com/AreebAhmad-02/Embedding-Models-Finetuning), shows clear gains from the same method.
+
+## Models and datasets on Hugging Face
+
+| | Link | What it is |
+|---|---|---|
+| Dataset | [`Areeb-02/30ragpapersdataset`](https://huggingface.co/datasets/Areeb-02/30ragpapersdataset) | 1,232 cleaned chunks from the 30 papers |
+| Dataset | [`Areeb-02/distilabel-aset-qa-30ragpapersdataset`](https://huggingface.co/datasets/Areeb-02/distilabel-aset-qa-30ragpapersdataset) | Raw distilabel generations for each chunk |
+| Dataset | [`Areeb-02/30rag_papers_qa_dataset`](https://huggingface.co/datasets/Areeb-02/30rag_papers_qa_dataset) | Final synthetic QA dataset (1,010 rows) |
+| Model | [`Areeb-02/bge-small-en-MultiplrRankingLoss-30-Rag-paper-dataset`](https://huggingface.co/Areeb-02/bge-small-en-MultiplrRankingLoss-30-Rag-paper-dataset) | Fine-tuned embedding model |
+| Base model | [`BAAI/bge-small-en`](https://huggingface.co/BAAI/bge-small-en) | Embedding model before fine-tuning |
 
 ## Repository structure
 
